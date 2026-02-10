@@ -103,8 +103,8 @@
 //     // Signature section (OLD STYLE)
 //     y = this.addSignatureOldStyle(doc, rightMargin, y);
 
-//     // Do's and Don'ts section (OLD STYLE)
-//     this.addDosAndDontsOldStyle(doc, leftMargin, rightMargin, pageWidth, y);
+//     // Do's and Don'ts section (OLD STYLE) - WITH PAGE BREAK CHECK
+//     this.addDosAndDontsOldStyle(doc, leftMargin, rightMargin, pageWidth, y, pageMargin, borderPadding);
 //   }
 
 //   /**
@@ -576,11 +576,74 @@
 //   }
 
 //   /**
-//    * Add Do's and Don'ts section (OLD STYLE - perfect table layout)
+//    * Add Do's and Don'ts section (OLD STYLE - with automatic page break)
+//    * IMPROVED: Entire table moves to next page if not enough space
 //    */
-//   addDosAndDontsOldStyle(doc, leftMargin, rightMargin, pageWidth, startY) {
+//   addDosAndDontsOldStyle(doc, leftMargin, rightMargin, pageWidth, startY, pageMargin, borderPadding) {
 //     const centerX = pageWidth / 2;
 //     let y = startY;
+
+//     // Calculate required height for Do's and Don'ts table
+//     const dosItems = [
+//       'Wear protective glasses.',
+//       'Carefully wash hands with soap & water & dry before applying eye drops.',
+//       'Put the eye drops as advised by your doctor.',
+//       'Can watch television.',
+//       'Take adequate rest after operation to promote healing.',
+//       'Go for regular visits as advised by your doctor.',
+//       'Clean the operated eye as advised.',
+//       'Light walking is allowed as exercise.'
+//     ];
+
+//     const dontsItems = [
+//       'Avoid heavy exercise, swimming, driving and playing with children until advised.',
+//       'Do not rub your eyes with dirty hand or linen.',
+//       'Do not sleep on the operated side for 5 days.',
+//       'Avoid bending & lifting heavy objects.',
+//       'Do not have a head bath until advised.',
+//       'Avoid deep cough, Sneeze and constipation.',
+//       'Do not open the eye drop with unsterile objects.'
+//     ];
+
+//     const maxItems = Math.max(dosItems.length, dontsItems.length);
+//     const rowHeight = 22;
+//     const headerHeight = 16;
+//     const topBorderSpace = 12;
+//     const warningHeight = 30;
+    
+//     // Calculate total height needed for COMPLETE table
+//     const totalTableHeight = topBorderSpace + headerHeight + (maxItems * rowHeight) + 10 + warningHeight;
+
+//     // Check if we need a new page
+//     const pageHeight = doc.page.height;
+//     const bottomMargin = pageMargin + borderPadding;
+//     const availableSpace = pageHeight - bottomMargin - y;
+
+//     console.log('📏 Table height check:');
+//     console.log('   Required height:', totalTableHeight);
+//     console.log('   Available space:', availableSpace);
+//     console.log('   Current Y:', y);
+//     console.log('   Page height:', pageHeight);
+//     console.log('   Bottom margin:', bottomMargin);
+
+//     // If not enough space for COMPLETE table, move to new page
+//     if (availableSpace < totalTableHeight) {
+//       console.log('⚠️ Not enough space - moving entire table to new page');
+      
+//       // Add new page
+//       doc.addPage({
+//         size: 'A4',
+//         margin: 0
+//       });
+      
+//       // Draw border on new page
+//       this.drawPageBorder(doc, pageMargin);
+      
+//       // Reset y to top of new page content area
+//       y = pageMargin + borderPadding;
+      
+//       console.log('✅ New page added - Y position reset to:', y);
+//     }
 
 //     // Table top border
 //     doc.moveTo(leftMargin, y)
@@ -588,10 +651,9 @@
 //        .lineWidth(1)
 //        .stroke('#000000');
 
-//     y += 12;
+//     y += topBorderSpace;
 
 //     // Headers with background
-//     const headerHeight = 16;
 //     const headerY = y;
     
 //     // Left header background
@@ -621,37 +683,11 @@
 
 //     y += headerHeight;
 
-//     // Do's items
-//     const dosItems = [
-//       'Wear protective glasses.',
-//       'Carefully wash hands with soap & water & dry before applying eye drops.',
-//       'Put the eye drops as advised by your doctor.',
-//       'Can watch television.',
-//       'Take adequate rest after operation to promote healing.',
-//       'Go for regular visits as advised by your doctor.',
-//       'Clean the operated eye as advised.',
-//       'Light walking is allowed as exercise.'
-//     ];
-
-//     // Don'ts items
-//     const dontsItems = [
-//       'Avoid heavy exercise, swimming, driving and playing with children until advised.',
-//       'Do not rub your eyes with dirty hand or linen.',
-//       'Do not sleep on the operated side for 5 days.',
-//       'Avoid bending & lifting heavy objects.',
-//       'Do not have a head bath until advised.',
-//       'Avoid deep cough, Sneeze and constipation.',
-//       'Do not open the eye drop with unsterile objects.'
-//     ];
-
 //     const leftColumnWidth = centerX - leftMargin - 10;
 //     const rightColumnWidth = rightMargin - centerX - 10;
 //     const cellPadding = 5;
-//     const rowHeight = 22;
 
 //     // Draw content rows
-//     const maxItems = Math.max(dosItems.length, dontsItems.length);
-    
 //     for (let i = 0; i < maxItems; i++) {
 //       const rowY = y + (i * rowHeight);
       
@@ -723,11 +759,89 @@
 
 // module.exports = new DischargeTicketPDFService();
 
+
+
+
+
+
 const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
 
 class DischargeTicketPDFService {
+  
+  /**
+   * Format date to DD/MM/YYYY
+   * @param {string} dateString - Date string (ISO or other format)
+   * @returns {string} - Formatted date DD/MM/YYYY
+   */
+  formatDate(dateString) {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString; // Return original if invalid
+      
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      
+      return `${day}/${month}/${year}`;
+    } catch (e) {
+      return dateString; // Return original on error
+    }
+  }
+
+  /**
+   * Format time to 12-hour format with AM/PM
+   * @param {string} timeString - Time string (HH:mm or other format)
+   * @returns {string} - Formatted time with AM/PM
+   */
+  formatTime(timeString) {
+    if (!timeString) return '';
+    
+    try {
+      // Handle various time formats
+      let hours, minutes;
+      
+      if (timeString.includes(':')) {
+        [hours, minutes] = timeString.split(':').map(Number);
+      } else {
+        // If no colon, assume it's already formatted or try to parse
+        return timeString;
+      }
+      
+      if (isNaN(hours) || isNaN(minutes)) return timeString;
+      
+      // Convert to 12-hour format
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const hour12 = hours % 12 || 12; // Convert 0 to 12 for midnight
+      const formattedMinutes = String(minutes).padStart(2, '0');
+      
+      return `${hour12}:${formattedMinutes} ${period}`;
+    } catch (e) {
+      return timeString; // Return original on error
+    }
+  }
+
+  /**
+   * Format date and time together
+   * @param {string} dateString - Date string
+   * @param {string} timeString - Time string
+   * @returns {string} - Formatted "DD/MM/YYYY at HH:MM AM/PM"
+   */
+  formatDateTime(dateString, timeString) {
+    const formattedDate = this.formatDate(dateString);
+    const formattedTime = this.formatTime(timeString);
+    
+    if (formattedDate && formattedTime) {
+      return `${formattedDate} at ${formattedTime}`;
+    } else if (formattedDate) {
+      return formattedDate;
+    }
+    
+    return '';
+  }
   
   /**
    * Generate discharge ticket PDF with professional header matching full-payment PDF
@@ -1084,7 +1198,7 @@ class DischargeTicketPDFService {
 
     y += 28;
 
-    // Date & Time of Admission
+    // Date & Time of Admission - WITH FORMATTED DATE AND TIME
     doc.fontSize(10)
        .font('Helvetica')
        .fillColor('#000000')
@@ -1099,9 +1213,7 @@ class DischargeTicketPDFService {
        .stroke('#000000');
 
     if (ticketData.admissionDate) {
-      const admissionText = ticketData.admissionTime 
-        ? `${ticketData.admissionDate} at ${ticketData.admissionTime}`
-        : ticketData.admissionDate;
+      const admissionText = this.formatDateTime(ticketData.admissionDate, ticketData.admissionTime);
       doc.fontSize(9)
          .font('Helvetica')
          .fillColor('#000000')
@@ -1110,7 +1222,7 @@ class DischargeTicketPDFService {
 
     y += 28;
 
-    // Date & Time of Discharge
+    // Date & Time of Discharge - WITH FORMATTED DATE AND TIME
     doc.fontSize(10)
        .font('Helvetica')
        .fillColor('#000000')
@@ -1125,9 +1237,7 @@ class DischargeTicketPDFService {
        .stroke('#000000');
 
     if (ticketData.dischargeDate) {
-      const dischargeText = ticketData.dischargeTime 
-        ? `${ticketData.dischargeDate} at ${ticketData.dischargeTime}`
-        : ticketData.dischargeDate;
+      const dischargeText = this.formatDateTime(ticketData.dischargeDate, ticketData.dischargeTime);
       doc.fontSize(9)
          .font('Helvetica')
          .fillColor('#000000')
@@ -1172,10 +1282,12 @@ class DischargeTicketPDFService {
        .stroke('#000000');
 
     if (ticketData.surgeryDate) {
+      // Format surgery date as DD/MM/YYYY
+      const formattedSurgeryDate = this.formatDate(ticketData.surgeryDate);
       doc.fontSize(9)
          .font('Helvetica')
          .fillColor('#000000')
-         .text(ticketData.surgeryDate, surgeryLineStart + 5, y + 1);
+         .text(formattedSurgeryDate, surgeryLineStart + 5, y + 1);
     }
 
     y += 35;
