@@ -499,6 +499,7 @@ exports.searchTickets = async (req, res) => {
 };
 
 // Generate and download PDF
+// Generate and download PDF
 exports.generatePDF = async (req, res) => {
   try {
     const ticketId = decodeURIComponent(req.params.id);
@@ -534,11 +535,14 @@ exports.generatePDF = async (req, res) => {
     console.log('📦 Buffer size:', pdfBuffer.length, 'bytes');
     console.log('📦 Buffer size (KB):', (pdfBuffer.length / 1024).toFixed(2), 'KB');
     
-    // Set response headers for PDF download
-    const filename = `DischargeTicket-${ticketId.replace(/\//g, '-')}-${ticket.patientName.replace(/\s+/g, '_')}.pdf`;
+    // ✅ FIXED: Proper filename with ticket ID
+    const safeTicketId = ticketId.replace(/\//g, '-');
+    const safePatientName = ticket.patientName.replace(/\s+/g, '_');
+    const filename = `discharge-ticket-${safeTicketId}-${safePatientName}.pdf`;
     
+    // ✅ CHANGED: Use 'inline' instead of 'attachment' for preview
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);  // ← CHANGED HERE
     res.setHeader('Content-Length', pdfBuffer.length);
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
