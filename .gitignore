@@ -1,0 +1,21 @@
+@"
+# Logs
+logs
+*.log
+npm-debug.log*
+
+node_modules
+dist
+*.local
+
+# Environment and Credentials
+.env
+.env.*
+madhu-rekha.json
+config/google-credentials.json
+*-credentials.json
+
+# Allow package files
+!package.json
+!package-lock.json
+"@ | Out-File -FilePath .gitignore -Encoding utf8
