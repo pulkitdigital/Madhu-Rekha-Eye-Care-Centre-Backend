@@ -1,9 +1,11 @@
 // const PDFDocument = require('pdfkit');
+// const path = require('path');
+// const fs = require('fs');
 
 // class DischargeTicketPDFService {
   
 //   /**
-//    * Generate discharge ticket PDF matching the exact layout
+//    * Generate discharge ticket PDF with professional header matching full-payment PDF
 //    * @param {Object} ticketData - Discharge ticket data
 //    * @param {Object} clinicProfile - Clinic profile data
 //    * @returns {Promise<Buffer>} - PDF buffer
@@ -17,12 +19,7 @@
 //         // Create PDF document with A4 size
 //         const doc = new PDFDocument({
 //           size: 'A4',
-//           margins: { 
-//             top: 30, 
-//             bottom: 30, 
-//             left: 40, 
-//             right: 40 
-//           },
+//           margin: 0,
 //           info: {
 //             Title: `Discharge Ticket - ${ticketData.ticketId}`,
 //             Author: clinicProfile.clinicName,
@@ -45,7 +42,20 @@
 //           reject(err);
 //         });
 
-//         // Generate PDF content matching the exact layout
+//         // Register fonts
+//         try {
+//           const workSansPath = path.join(__dirname, '..', '..', '..', 'resources', 'WorkSans-Regular.ttf');
+//           if (fs && fs.existsSync(workSansPath)) {
+//             doc.registerFont('WorkSans', workSansPath);
+//             doc.font('WorkSans');
+//           } else {
+//             doc.font('Helvetica');
+//           }
+//         } catch (e) {
+//           doc.font('Helvetica');
+//         }
+
+//         // Generate PDF content
 //         this.generateContent(doc, ticketData, clinicProfile);
 
 //         // Finalize PDF
@@ -62,196 +72,200 @@
 //    * Generate the complete PDF content
 //    */
 //   generateContent(doc, ticketData, clinicProfile) {
+//     const pageMargin = 15;
+//     const borderPadding = 20;
+
+//     // Draw page border
+//     this.drawPageBorder(doc, pageMargin);
+
+//     // Calculate content area
+//     const contentArea = this.computeContentArea(doc, pageMargin, borderPadding);
+//     let { contentLeft, contentTop, contentRight, usableWidth } = contentArea;
+//     let y = contentTop;
+
+//     // Add professional header with logos (matching full-payment PDF)
+//     y = this.addProfessionalHeader(doc, clinicProfile, contentLeft, contentTop, contentRight, usableWidth, y);
+
+//     // Add doctors info
+//     y = this.addDoctorInfo(doc, clinicProfile, contentLeft, contentRight, usableWidth, y);
+
+//     // NOW USE OLD FORMAT FOR REST OF THE CONTENT
 //     const pageWidth = doc.page.width;
-//     let y = 30;
+//     const leftMargin = contentLeft;
+//     const rightMargin = contentRight;
 
-//     // Top line with registration and PAN number
-//     y = this.addTopRegistrationLine(doc, clinicProfile, y);
+//     // DISCHARGE TICKET badge (OLD STYLE - rounded black badge)
+//     y = this.addDischargeTicketBadgeOldStyle(doc, pageWidth, y);
 
-//     // Clinic name (professional black & white)
-//     y = this.addClinicName(doc, clinicProfile, y);
+//     // Patient details form (OLD STYLE - with underlines)
+//     y = this.addPatientDetailsFormOldStyle(doc, ticketData, leftMargin, rightMargin, usableWidth, y);
 
-//     // Address with underline
-//     y = this.addAddress(doc, clinicProfile, y);
+//     // Signature section (OLD STYLE)
+//     y = this.addSignatureOldStyle(doc, rightMargin, y);
 
-//     // Doctor information (left and right)
-//     y = this.addDoctorInfo(doc, clinicProfile, y);
-
-//     // DISCHARGE TICKET badge
-//     y = this.addDischargeTicketBadge(doc, y);
-
-//     // Patient details form fields
-//     y = this.addPatientDetailsForm(doc, ticketData, y);
-
-//     // Signature section
-//     y = this.addSignature(doc, y);
-
-//     // Do's and Don'ts section
-//     this.addDosAndDonts(doc, y);
+//     // Do's and Don'ts section (OLD STYLE)
+//     this.addDosAndDontsOldStyle(doc, leftMargin, rightMargin, pageWidth, y);
 //   }
 
 //   /**
-//    * Add top registration line
+//    * Draw page border
 //    */
-//   addTopRegistrationLine(doc, clinicProfile, startY) {
-//     const pageWidth = doc.page.width;
-    
-//     // Left side - Registration number
-//     doc.fontSize(9)
-//        .fillColor('#000000')
-//        .font('Helvetica')
-//        .text(`Regn. No.: ${clinicProfile.registrationNumber || 'C20357003323'}`, 40, startY);
-
-//     // Right side - PAN number
-//     const panText = `PAN No. - ${clinicProfile.panNumber || 'ABFFM3115J'}`;
-//     doc.fontSize(9)
-//        .text(panText, pageWidth - 200, startY, {
-//          width: 150,
-//          align: 'right'
-//        });
-
-//     return startY + 18;
+//   drawPageBorder(doc, pageMargin) {
+//     try {
+//       const pw = doc.page.width;
+//       const ph = doc.page.height;
+//       doc.save();
+//       doc.lineWidth(0.8);
+//       doc.rect(pageMargin, pageMargin, pw - pageMargin * 2, ph - pageMargin * 2).stroke();
+//       doc.restore();
+//     } catch (e) {
+//       /* ignore */
+//     }
 //   }
 
 //   /**
-//    * Add clinic name with underline (black & white professional)
+//    * Compute content area
 //    */
-//   addClinicName(doc, clinicProfile, startY) {
-//     const pageWidth = doc.page.width;
-//     const leftMargin = 40;
-//     const rightMargin = pageWidth - 40;
+//   computeContentArea(doc, pageMargin, borderPadding) {
+//     const pw = doc.page.width;
+//     const ph = doc.page.height;
+//     const contentLeft = pageMargin + borderPadding;
+//     const contentTop = pageMargin + borderPadding;
+//     const contentRight = pw - (pageMargin + borderPadding);
+//     const contentBottom = ph - (pageMargin + borderPadding);
+//     const usableWidth = contentRight - contentLeft;
+//     const usableHeight = contentBottom - contentTop;
+//     return { contentLeft, contentTop, contentRight, contentBottom, usableWidth, usableHeight };
+//   }
+
+//   /**
+//    * Add professional header with logos (matching full-payment PDF format)
+//    */
+//   addProfessionalHeader(doc, clinicProfile, contentLeft, contentTop, contentRight, usableWidth, startY) {
+//     let y = startY;
+
+//     // Fix: Resources folder is at Backend level (same as DischargeSlips)
+//     const logoLeftPath = path.join(__dirname, '..', '..', 'resources', 'logo-left.png');
+//     const logoRightPath = path.join(__dirname, '..', '..', 'resources', 'logo-right.png');
     
-//     doc.fontSize(18)
-//        .fillColor('#000000')
+//     const logoW = 40;
+//     const logoH = 40;
+
+//     // Left logo
+//     try {
+//       if (fs && fs.existsSync(logoLeftPath)) {
+//         doc.image(logoLeftPath, contentLeft, y, { width: logoW, height: logoH });
+//       }
+//     } catch (e) {}
+
+//     // Right logo
+//     try {
+//       if (fs && fs.existsSync(logoRightPath)) {
+//         doc.image(logoRightPath, contentRight - logoW, y, { width: logoW, height: logoH });
+//       }
+//     } catch (e) {}
+
+//     // Clinic name (centered, bold)
+//     doc.fontSize(14)
 //        .font('Helvetica-Bold')
-//        .text(clinicProfile.clinicName.toUpperCase(), leftMargin, startY, {
-//          width: rightMargin - leftMargin,
+//        .text(clinicProfile.clinicName || '', contentLeft, y + 6, {
+//          width: usableWidth,
 //          align: 'center'
 //        });
 
-//     const nameHeight = doc.heightOfString(clinicProfile.clinicName.toUpperCase(), {
-//       width: rightMargin - leftMargin
-//     });
-
-//     // Underline
-//     const underlineY = startY + nameHeight + 2;
-//     doc.moveTo(leftMargin, underlineY)
-//        .lineTo(rightMargin, underlineY)
-//        .lineWidth(1)
-//        .stroke('#000000');
-
-//     return underlineY + 6;
-//   }
-
-//   /**
-//    * Add address
-//    */
-//   addAddress(doc, clinicProfile, startY) {
-//     const pageWidth = doc.page.width;
-//     const leftMargin = 40;
-//     const rightMargin = pageWidth - 40;
-    
+//     // Address (centered)
 //     doc.fontSize(9)
-//        .fillColor('#000000')
 //        .font('Helvetica')
-//        .text(clinicProfile.address, leftMargin, startY, {
-//          width: rightMargin - leftMargin,
-//          align: 'center',
-//          lineGap: 1
+//        .text(clinicProfile.address || '', contentLeft, y + 26, {
+//          width: usableWidth,
+//          align: 'center'
 //        });
 
-//     const addressHeight = doc.heightOfString(clinicProfile.address, {
-//       width: rightMargin - leftMargin
+//     // PAN and Registration number (centered)
+//     const panText = clinicProfile.panNumber || clinicProfile.pan || '';
+//     const regText = clinicProfile.registrationNumber || clinicProfile.regNo || '';
+//     doc.text(`PAN : ${panText}   |   Reg. No: ${regText}`, contentLeft, y + 40, {
+//       width: usableWidth,
+//       align: 'center'
 //     });
 
-//     return startY + addressHeight + 12;
+//     y += 56;
+
+//     // Horizontal line separator
+//     doc.moveTo(contentLeft, y).lineTo(contentRight, y).stroke();
+//     y += 8;
+
+//     return y;
 //   }
 
 //   /**
-//    * Add doctor information (two columns) - professional black & white
+//    * Add doctor information (two columns) - matching full-payment PDF
 //    */
-//   addDoctorInfo(doc, clinicProfile, startY) {
-//     const leftMargin = 40;
-//     const centerX = doc.page.width / 2;
-//     const rightStart = centerX + 20;
-    
+//   addDoctorInfo(doc, clinicProfile, contentLeft, contentRight, usableWidth, startY) {
+//     let y = startY;
+
+//     const doctor1Name = clinicProfile.doctor1Name || '';
+//     const doctor1RegNo = clinicProfile.doctor1RegNo || clinicProfile.doctor1Qualification || '';
+//     const doctor2Name = clinicProfile.doctor2Name || '';
+//     const doctor2RegNo = clinicProfile.doctor2RegNo || clinicProfile.doctor2Qualification || '';
+
 //     // Doctor 1 (Left side)
-//     doc.fontSize(11)
-//        .font('Helvetica-Bold')
-//        .fillColor('#000000')
-//        .text(clinicProfile.doctor1Name.toUpperCase(), leftMargin, startY);
-
-//     doc.fontSize(8)
-//        .font('Helvetica')   
-//        .fillColor('#000000')
-//        .text(clinicProfile.doctor1Qualification, leftMargin, startY + 15);
-
-//     doc.fontSize(8)
-//        .text(`MOB.: ${clinicProfile.doctor1Mobile}`, leftMargin, startY + 27);
+//     doc.fontSize(9).font('Helvetica-Bold');
+//     doc.text(doctor1Name, contentLeft, y);
 
 //     // Doctor 2 (Right side)
-//     if (clinicProfile.doctor2Name) {
-//       doc.fontSize(11)
-//          .font('Helvetica-Bold')
-//          .fillColor('#000000')
-//          .text(clinicProfile.doctor2Name.toUpperCase(), rightStart, startY, {
-//            width: doc.page.width - rightStart - 40,
-//            align: 'right'
-//          });
+//     doc.text(doctor2Name, contentLeft, y, {
+//       width: usableWidth,
+//       align: 'right'
+//     });
 
-//       doc.fontSize(8)
-//          .font('Helvetica')
-//          .fillColor('#000000')
-//          .text(clinicProfile.doctor2Qualification, rightStart, startY + 15, {
-//            width: doc.page.width - rightStart - 40,
-//            align: 'right'
-//          });
+//     y += 12;
 
-//       if (clinicProfile.doctor2Mobile) {
-//         doc.fontSize(8)
-//            .text(`MOB.: ${clinicProfile.doctor2Mobile}`, rightStart, startY + 27, {
-//              width: doc.page.width - rightStart - 40,
-//              align: 'right'
-//            });
-//       }
-//     }
+//     // Doctor 1 Reg No (Left)
+//     doc.font('Helvetica').fontSize(8);
+//     doc.text(doctor1RegNo ? `Reg. No.: ${doctor1RegNo}` : '', contentLeft, y);
 
-//     return startY + 45;
+//     // Doctor 2 Reg No (Right)
+//     doc.text(doctor2RegNo ? `Reg. No.: ${doctor2RegNo}` : '', contentLeft, y, {
+//       width: usableWidth,
+//       align: 'right'
+//     });
+
+//     y += 18;
+
+//     return y;
 //   }
 
 //   /**
-//    * Add DISCHARGE TICKET badge (rounded black badge)
+//    * Add DISCHARGE TICKET badge (OLD STYLE - rounded black badge)
 //    */
-//   addDischargeTicketBadge(doc, startY) {
-//     const pageWidth = doc.page.width;
+//   addDischargeTicketBadgeOldStyle(doc, pageWidth, startY) {
+//     let y = startY;
 //     const badgeWidth = 220;
 //     const badgeHeight = 28;
 //     const badgeX = (pageWidth - badgeWidth) / 2;
 //     const cornerRadius = 14;
 
 //     // Black rounded rectangle
-//     doc.roundedRect(badgeX, startY, badgeWidth, badgeHeight, cornerRadius)
+//     doc.roundedRect(badgeX, y, badgeWidth, badgeHeight, cornerRadius)
 //        .fillAndStroke('#000000', '#000000');
 
 //     // White text
 //     doc.fontSize(13)
 //        .fillColor('#FFFFFF')
 //        .font('Helvetica-Bold')
-//        .text('DISCHARGE TICKET', badgeX, startY + 8, {
+//        .text('DISCHARGE TICKET', badgeX, y + 8, {
 //          width: badgeWidth,
 //          align: 'center'
 //        });
 
-//     return startY + badgeHeight + 18;
+//     return y + badgeHeight + 18;
 //   }
 
 //   /**
-//    * Add patient details form fields
+//    * Add patient details form fields (OLD STYLE - with underlines)
 //    */
-//   addPatientDetailsForm(doc, ticketData, startY) {
-//     const leftMargin = 40;
-//     const pageWidth = doc.page.width;
-//     const rightMargin = pageWidth - 40;
+//   addPatientDetailsFormOldStyle(doc, ticketData, leftMargin, rightMargin, usableWidth, startY) {
 //     let y = startY;
 
 //     // Name and Age/Sex on same line
@@ -260,7 +274,7 @@
 //        .font('Helvetica')
 //        .text('Name :-', leftMargin, y);
 
-//     const nameLabelWidth = doc.widthOfString('Name :');
+//     const nameLabelWidth = doc.widthOfString('Name :-');
 //     const nameLineStart = leftMargin + nameLabelWidth + 8;
 //     const nameLineEnd = 420;
     
@@ -538,10 +552,9 @@
 //   }
 
 //   /**
-//    * Add signature section before Do's and Don'ts
+//    * Add signature section (OLD STYLE)
 //    */
-//   addSignature(doc, startY) {
-//     const rightMargin = doc.page.width - 40;
+//   addSignatureOldStyle(doc, rightMargin, startY) {
 //     let y = startY + 10;
 
 //     // Signature line
@@ -563,12 +576,9 @@
 //   }
 
 //   /**
-//    * Add Do's and Don'ts section with perfect table layout
+//    * Add Do's and Don'ts section (OLD STYLE - perfect table layout)
 //    */
-//   addDosAndDonts(doc, startY) {
-//     const leftMargin = 40;
-//     const pageWidth = doc.page.width;
-//     const rightMargin = pageWidth - 40;
+//   addDosAndDontsOldStyle(doc, leftMargin, rightMargin, pageWidth, startY) {
 //     const centerX = pageWidth / 2;
 //     let y = startY;
 
@@ -713,15 +723,6 @@
 
 // module.exports = new DischargeTicketPDFService();
 
-
-
-
-
-
-
-
-
-
 const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
@@ -827,8 +828,8 @@ class DischargeTicketPDFService {
     // Signature section (OLD STYLE)
     y = this.addSignatureOldStyle(doc, rightMargin, y);
 
-    // Do's and Don'ts section (OLD STYLE)
-    this.addDosAndDontsOldStyle(doc, leftMargin, rightMargin, pageWidth, y);
+    // Do's and Don'ts section (OLD STYLE) - WITH PAGE BREAK CHECK
+    this.addDosAndDontsOldStyle(doc, leftMargin, rightMargin, pageWidth, y, pageMargin, borderPadding);
   }
 
   /**
@@ -1300,11 +1301,74 @@ class DischargeTicketPDFService {
   }
 
   /**
-   * Add Do's and Don'ts section (OLD STYLE - perfect table layout)
+   * Add Do's and Don'ts section (OLD STYLE - with automatic page break)
+   * IMPROVED: Entire table moves to next page if not enough space
    */
-  addDosAndDontsOldStyle(doc, leftMargin, rightMargin, pageWidth, startY) {
+  addDosAndDontsOldStyle(doc, leftMargin, rightMargin, pageWidth, startY, pageMargin, borderPadding) {
     const centerX = pageWidth / 2;
     let y = startY;
+
+    // Calculate required height for Do's and Don'ts table
+    const dosItems = [
+      'Wear protective glasses.',
+      'Carefully wash hands with soap & water & dry before applying eye drops.',
+      'Put the eye drops as advised by your doctor.',
+      'Can watch television.',
+      'Take adequate rest after operation to promote healing.',
+      'Go for regular visits as advised by your doctor.',
+      'Clean the operated eye as advised.',
+      'Light walking is allowed as exercise.'
+    ];
+
+    const dontsItems = [
+      'Avoid heavy exercise, swimming, driving and playing with children until advised.',
+      'Do not rub your eyes with dirty hand or linen.',
+      'Do not sleep on the operated side for 5 days.',
+      'Avoid bending & lifting heavy objects.',
+      'Do not have a head bath until advised.',
+      'Avoid deep cough, Sneeze and constipation.',
+      'Do not open the eye drop with unsterile objects.'
+    ];
+
+    const maxItems = Math.max(dosItems.length, dontsItems.length);
+    const rowHeight = 22;
+    const headerHeight = 16;
+    const topBorderSpace = 12;
+    const warningHeight = 30;
+    
+    // Calculate total height needed for COMPLETE table
+    const totalTableHeight = topBorderSpace + headerHeight + (maxItems * rowHeight) + 10 + warningHeight;
+
+    // Check if we need a new page
+    const pageHeight = doc.page.height;
+    const bottomMargin = pageMargin + borderPadding;
+    const availableSpace = pageHeight - bottomMargin - y;
+
+    console.log('📏 Table height check:');
+    console.log('   Required height:', totalTableHeight);
+    console.log('   Available space:', availableSpace);
+    console.log('   Current Y:', y);
+    console.log('   Page height:', pageHeight);
+    console.log('   Bottom margin:', bottomMargin);
+
+    // If not enough space for COMPLETE table, move to new page
+    if (availableSpace < totalTableHeight) {
+      console.log('⚠️ Not enough space - moving entire table to new page');
+      
+      // Add new page
+      doc.addPage({
+        size: 'A4',
+        margin: 0
+      });
+      
+      // Draw border on new page
+      this.drawPageBorder(doc, pageMargin);
+      
+      // Reset y to top of new page content area
+      y = pageMargin + borderPadding;
+      
+      console.log('✅ New page added - Y position reset to:', y);
+    }
 
     // Table top border
     doc.moveTo(leftMargin, y)
@@ -1312,10 +1376,9 @@ class DischargeTicketPDFService {
        .lineWidth(1)
        .stroke('#000000');
 
-    y += 12;
+    y += topBorderSpace;
 
     // Headers with background
-    const headerHeight = 16;
     const headerY = y;
     
     // Left header background
@@ -1345,37 +1408,11 @@ class DischargeTicketPDFService {
 
     y += headerHeight;
 
-    // Do's items
-    const dosItems = [
-      'Wear protective glasses.',
-      'Carefully wash hands with soap & water & dry before applying eye drops.',
-      'Put the eye drops as advised by your doctor.',
-      'Can watch television.',
-      'Take adequate rest after operation to promote healing.',
-      'Go for regular visits as advised by your doctor.',
-      'Clean the operated eye as advised.',
-      'Light walking is allowed as exercise.'
-    ];
-
-    // Don'ts items
-    const dontsItems = [
-      'Avoid heavy exercise, swimming, driving and playing with children until advised.',
-      'Do not rub your eyes with dirty hand or linen.',
-      'Do not sleep on the operated side for 5 days.',
-      'Avoid bending & lifting heavy objects.',
-      'Do not have a head bath until advised.',
-      'Avoid deep cough, Sneeze and constipation.',
-      'Do not open the eye drop with unsterile objects.'
-    ];
-
     const leftColumnWidth = centerX - leftMargin - 10;
     const rightColumnWidth = rightMargin - centerX - 10;
     const cellPadding = 5;
-    const rowHeight = 22;
 
     // Draw content rows
-    const maxItems = Math.max(dosItems.length, dontsItems.length);
-    
     for (let i = 0; i < maxItems; i++) {
       const rowY = y + (i * rowHeight);
       
